@@ -243,3 +243,7 @@ def trim_embeddings():
             for line in f:
                 if line.split(" ")[0] in keep:
                     f2.write(line)
+
+
+if __name__ == '__main__':
+    trim_embeddings()
