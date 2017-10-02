@@ -8,7 +8,7 @@ import tensorflow as tf
 import tensorflow.contrib.seq2seq as seq2seq
 from tensorflow.contrib.rnn import GRUCell
 from tensorflow.python.layers.core import Dense
-from tqdm import tqdm
+from tqdm import tqdm, trange
 
 from qgen.embedding_vis import prepare_embeddings_for_tensorboard
 from qgen.data import training_data, test_data, collapse_documents, expand_answers
@@ -77,8 +77,10 @@ optimizer = tf.train.AdamOptimizer().minimize(loss)
 
 merged = tf.summary.merge_all()
 
+
 saver = tf.train.Saver()
 session = tf.InteractiveSession()
+writer = tf.summary.FileWriter(log_dir, session.graph)
 
 EPOCHS = 5
 
@@ -87,19 +89,16 @@ for i in range(1, EPOCHS + 1):
     if os.path.exists("model-{0}.index".format(i)):
         epoch = i
 
-writer = tf.summary.FileWriter(log_dir, session.graph)
-
-
 if epoch:
     saver.restore(session, "model-{0}".format(epoch))
 else:
     session.run(tf.global_variables_initializer())
 
 batch_index = 0
-for epoch in tqdm(range(epoch + 1, EPOCHS + 1), total=EPOCHS-epoch,
-                   desc="Training", unit=" epochs"):
-    summary = None
-    for batch in tqdm(training_data(), desc="Running batch", unit=" batches"):
+batch_count = None
+for epoch in trange(epoch + 1, EPOCHS + 1, desc="Epochs", unit="epoch"):
+    batches = tqdm(training_data(), total=batch_count, desc="Batches", unit="batch")
+    for batch in batches:
         _, loss_value, summary = session.run([optimizer, loss, merged], {
             document_tokens: batch["document_tokens"],
             document_lengths: batch["document_lengths"],
@@ -110,10 +109,14 @@ for epoch in tqdm(range(epoch + 1, EPOCHS + 1), total=EPOCHS-epoch,
             decoder_labels: batch["question_output_tokens"],
             decoder_lengths: batch["question_lengths"],
         })
-        print("Loss: {0}".format(loss_value))
+        batches.set_postfix(loss=loss_value)
         writer.add_summary(summary, batch_index)
         writer.flush()
         batch_index += 1
+
+    if batch_count is None:
+        batch_count = batch_index
+
     saver.save(session, "model", epoch)
 
 
