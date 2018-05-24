@@ -65,7 +65,7 @@ def _prepare_batch(batch):
         answer_lengths[i] = len(answer_indices[i])
 
         for j, word in enumerate(question_input_words[i]):
-            question_output_tokens[i, j] = look_up_word(word)
+            question_input_tokens[i, j] = look_up_word(word)
         for j, word in enumerate(question_output_words[i]):
             question_output_tokens[i, j] = look_up_word(word)
         question_lengths[i] = len(question_input_words[i])
