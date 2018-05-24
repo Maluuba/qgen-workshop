@@ -90,7 +90,7 @@ for i in range(1, EPOCHS + 1):
         epoch = i
 
 if epoch:
-    saver.restore(session, "model-{0}".format(epoch))
+    saver.restore(session, "./model-{0}".format(epoch))
 else:
     session.run(tf.global_variables_initializer())
 
@@ -117,7 +117,7 @@ for epoch in trange(epoch + 1, EPOCHS + 1, desc="Epochs", unit="epoch"):
     if batch_count is None:
         batch_count = batch_index
 
-    saver.save(session, "model", epoch)
+    saver.save(session, "./model", epoch)
 
 
 batch = next(test_data())
