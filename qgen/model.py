@@ -90,7 +90,7 @@ for i in range(1, EPOCHS + 1):
         epoch = i
 
 if epoch:
-    saver.restore(session, "model-{0}".format(epoch))
+    saver.restore(session, "./model-{0}".format(epoch))
 else:
     session.run(tf.global_variables_initializer())
 
@@ -117,7 +117,7 @@ for epoch in trange(epoch + 1, EPOCHS + 1, desc="Epochs", unit="epoch"):
     if batch_count is None:
         batch_count = batch_index
 
-    saver.save(session, "model", epoch)
+    saver.save(session, "./model", epoch)
 
 
 batch = next(test_data())
@@ -132,23 +132,34 @@ answers = np.argmax(answers, 2)
 
 batch = expand_answers(batch, answers)
 
-helper = seq2seq.GreedyEmbeddingHelper(embedding, tf.fill([batch["size"]], START_TOKEN), END_TOKEN)
+# Work around https://github.com/tensorflow/nmt/issues/117
+class FixedHelper(seq2seq.GreedyEmbeddingHelper):
+    def sample(self, *args, **kwargs):
+        result = super().sample(*args, **kwargs)
+        result.set_shape([batch["size"]])
+        return result
+
+helper = FixedHelper(embedding, tf.fill([batch["size"]], START_TOKEN), END_TOKEN)
 decoder = seq2seq.BasicDecoder(decoder_cell, helper, encoder_state, output_layer=projection)
-decoder_outputs, _, _ = seq2seq.dynamic_decode(decoder, maximum_iterations=16)
-decoder_outputs = decoder_outputs.rnn_output
 
-questions = session.run(decoder_outputs, {
-    document_tokens: batch["document_tokens"],
-    document_lengths: batch["document_lengths"],
-    answer_labels: batch["answer_labels"],
-    encoder_input_mask: batch["answer_masks"],
-    encoder_lengths: batch["answer_lengths"],
-})
-questions[:,:,UNKNOWN_TOKEN] = 0
-questions = np.argmax(questions, 2)
+if batch["size"] > 0:
+    decoder_outputs, _, _ = seq2seq.dynamic_decode(decoder, maximum_iterations=16)
+    decoder_outputs = decoder_outputs.rnn_output
 
-for i in range(batch["size"]):
-    question = itertools.takewhile(lambda t: t != END_TOKEN, questions[i])
-    print("Question: " + " ".join(look_up_token(token) for token in question))
-    print("Answer: " + batch["answer_text"][i])
-    print()
+    questions = session.run(decoder_outputs, {
+        document_tokens: batch["document_tokens"],
+        document_lengths: batch["document_lengths"],
+        answer_labels: batch["answer_labels"],
+        encoder_input_mask: batch["answer_masks"],
+        encoder_lengths: batch["answer_lengths"],
+    })
+    questions[:,:,UNKNOWN_TOKEN] = 0
+    questions = np.argmax(questions, 2)
+
+    for i in range(batch["size"]):
+        question = itertools.takewhile(lambda t: t != END_TOKEN, questions[i])
+        print("Question: " + " ".join(look_up_token(token) for token in question))
+        print("Answer: " + batch["answer_text"][i])
+        print()
+else:
+    print("No answers extracted!")
