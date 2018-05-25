@@ -132,7 +132,14 @@ answers = np.argmax(answers, 2)
 
 batch = expand_answers(batch, answers)
 
-helper = seq2seq.GreedyEmbeddingHelper(embedding, tf.fill([batch["size"]], START_TOKEN), END_TOKEN)
+# Work around https://github.com/tensorflow/nmt/issues/117
+class FixedHelper(seq2seq.GreedyEmbeddingHelper):
+    def sample(self, *args, **kwargs):
+        result = super().sample(*args, **kwargs)
+        result.set_shape([batch["size"]])
+        return result
+
+helper = FixedHelper(embedding, tf.fill([batch["size"]], START_TOKEN), END_TOKEN)
 decoder = seq2seq.BasicDecoder(decoder_cell, helper, encoder_state, output_layer=projection)
 
 if batch["size"] > 0:
