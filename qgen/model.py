@@ -134,21 +134,25 @@ batch = expand_answers(batch, answers)
 
 helper = seq2seq.GreedyEmbeddingHelper(embedding, tf.fill([batch["size"]], START_TOKEN), END_TOKEN)
 decoder = seq2seq.BasicDecoder(decoder_cell, helper, encoder_state, output_layer=projection)
-decoder_outputs, _, _ = seq2seq.dynamic_decode(decoder, maximum_iterations=16)
-decoder_outputs = decoder_outputs.rnn_output
 
-questions = session.run(decoder_outputs, {
-    document_tokens: batch["document_tokens"],
-    document_lengths: batch["document_lengths"],
-    answer_labels: batch["answer_labels"],
-    encoder_input_mask: batch["answer_masks"],
-    encoder_lengths: batch["answer_lengths"],
-})
-questions[:,:,UNKNOWN_TOKEN] = 0
-questions = np.argmax(questions, 2)
+if batch["size"] > 0:
+    decoder_outputs, _, _ = seq2seq.dynamic_decode(decoder, maximum_iterations=16)
+    decoder_outputs = decoder_outputs.rnn_output
 
-for i in range(batch["size"]):
-    question = itertools.takewhile(lambda t: t != END_TOKEN, questions[i])
-    print("Question: " + " ".join(look_up_token(token) for token in question))
-    print("Answer: " + batch["answer_text"][i])
-    print()
+    questions = session.run(decoder_outputs, {
+        document_tokens: batch["document_tokens"],
+        document_lengths: batch["document_lengths"],
+        answer_labels: batch["answer_labels"],
+        encoder_input_mask: batch["answer_masks"],
+        encoder_lengths: batch["answer_lengths"],
+    })
+    questions[:,:,UNKNOWN_TOKEN] = 0
+    questions = np.argmax(questions, 2)
+
+    for i in range(batch["size"]):
+        question = itertools.takewhile(lambda t: t != END_TOKEN, questions[i])
+        print("Question: " + " ".join(look_up_token(token) for token in question))
+        print("Answer: " + batch["answer_text"][i])
+        print()
+else:
+    print("No answers extracted!")

@@ -40,9 +40,9 @@ def _prepare_batch(batch):
         question_output_words.append(question_words + [END_WORD])
 
     batch_size = len(batch)
-    max_document_len = max(len(document) for document in document_words)
-    max_answer_len = max(len(answer) for answer in answer_indices)
-    max_question_len = max(len(question) for question in question_input_words)
+    max_document_len = max((len(document) for document in document_words), default=0)
+    max_answer_len = max((len(answer) for answer in answer_indices), default=0)
+    max_question_len = max((len(question) for question in question_input_words), default=0)
 
     document_tokens = np.zeros((batch_size, max_document_len), dtype=np.int32)
     document_lengths = np.zeros(batch_size, dtype=np.int32)
